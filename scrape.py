@@ -53,10 +53,27 @@ def main():
                 f"No chat links found using selector: {CHAT_LINKS_SELECTOR}. Page structure may have changed.")
 
         # 4) Click the first chat item
-        first_item = chat_links.first
-        first_item.scroll_into_view_if_needed()
-        first_item.click()
-        print("[info] Clicked the first chat item.")
+        for i in range(2):
+            chat_link = chat_links.nth(i)
+            href = chat_link.get_attribute("href")
+            print(f"[info] Opening chat {i+1}: {href}")
+            chat_link.scroll_into_view_if_needed()
+            chat_link.click()
+            page.wait_for_load_state("networkidle", timeout=8000)
+
+            # (simulate scraping later)
+            print("[info] (pretend scraping markdown here)")
+
+            # go back
+            print("[info] Going back to chat list...")
+            page.go_back()
+            page.wait_for_load_state("networkidle", timeout=8000)
+
+        # print("[info] Going back to chat list...")
+        # page.wait_for_load_state("networkidle", timeout=5000)
+        # page.go_back()
+        # page.wait_for_load_state("networkidle", timeout=5000)
+        # print("[info] Returned to chat list.")
 
 
 if __name__ == "__main__":
