@@ -17,6 +17,50 @@ CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
 PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
 
+# -----------------------helper functions---------------------------
+
+
+def wait_for_chat_and_markdown(page, max_wait_ms=12000, retries=4, pause_s=0.6) -> str:
+    """
+    Waits for chat content to appear, then returns non-empty markdown.
+    Retries a few times in case the SPA is still painting.
+    """
+    # 1) Wait for any message node to be in the DOM
+    page.wait_for_selector('[data-message-author-role]', timeout=max_wait_ms)
+    page.wait_for_load_state("networkidle", timeout=4000)
+
+    # 2) Try a few times until markdown is non-empty
+    for attempt in range(1, retries + 1):
+        md = get_chat_markdown(page).strip()
+        if md:
+            return md
+        # give the SPA a moment to finish painting/rehydration
+        time.sleep(pause_s)
+        try:
+            page.wait_for_load_state("networkidle", timeout=1500)
+        except Exception:
+            pass
+
+    # last try; return whatever we got (possibly empty) so caller can decide
+    return get_chat_markdown(page).strip()
+
+
+def get_list_title(link_el) -> str:
+    """
+    From a project list <a>, return only the visible title text,
+    preferring <div class="text-sm font-medium">.
+    """
+    try:
+        title_node = link_el.locator('div.text-sm.font-medium').first
+        return title_node.inner_text(timeout=2000).strip()
+    except Exception:
+        # fallback: attribute → full anchor text
+        t = link_el.get_attribute(
+            "title") or link_el.get_attribute("aria-label")
+        if not t:
+            t = link_el.inner_text(timeout=5000)
+        return re.sub(r"\s+", " ", (t or "")).strip()
+
 
 def get_chat_markdown(page) -> str:
     """
@@ -88,6 +132,8 @@ def pick_chatgpt_page(browser):
     # Fallback: first page in first context
     return browser.contexts[0].pages[0]
 
+# ---------------------------------main function-------------------------
+
 
 def main():
     with sync_playwright() as pw:
@@ -129,11 +175,7 @@ def main():
             link = links.nth(i)
 
             # 1) TITLE BEFORE CLICK (attributes first, then inner text)
-            title = link.get_attribute(
-                "title") or link.get_attribute("aria-label")
-            if not title:
-                title = link.inner_text(timeout=5000)
-            title = re.sub(r"\s+", " ", (title or f"chat_{i+1}")).strip()
+            title = get_list_title(link) or f"chat_{i+1}"
 
             slug = slugify_title(title)
             href = link.get_attribute("href")
@@ -146,8 +188,12 @@ def main():
             page.wait_for_load_state("networkidle", timeout=8000)
 
             # 3) SCRAPE
-            markdown = get_chat_markdown(page)
-            print(f"[info] Collected markdown length: {len(markdown)}")
+            markdown = wait_for_chat_and_markdown(page)
+            if not markdown:
+                print(
+                    "[warn] Markdown still empty after waits; skipping save for this item.")
+                # Optional: continue to next item
+                continue
 
             # 4) SAVE
             out_path = save_markdown(markdown, slug)
