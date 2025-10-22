@@ -12,6 +12,7 @@ CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
 
 
+
 def pick_chatgpt_page(browser):
     # Prefer a tab already on ChatGPT; otherwise just take the first visible page.
     for context in browser.contexts:
@@ -53,7 +54,7 @@ def main():
                 f"No chat links found using selector: {CHAT_LINKS_SELECTOR}. Page structure may have changed.")
 
         # 4) Click the first chat item
-        for i in range(2):
+        for i in range(3):
             chat_link = chat_links.nth(i)
             href = chat_link.get_attribute("href")
             print(f"[info] Opening chat {i+1}: {href}")
@@ -61,19 +62,20 @@ def main():
             chat_link.click()
             page.wait_for_load_state("networkidle", timeout=8000)
 
-            # (simulate scraping later)
-            print("[info] (pretend scraping markdown here)")
+            # Scrape user messages
+            print("[info] Scraping user messages...")
+            user_messages = page.eval_on_selector_all(
+                'div[data-message-author-role="user"]',
+                'nodes => nodes.map(n => n.innerText.trim())'
+            )
+            print("[debug] User messages found:", len(user_messages))
+            for j, msg in enumerate(user_messages, 1):
+                print(f"[user {j}] {msg[:200]!r}")
 
             # go back
             print("[info] Going back to chat list...")
             page.go_back()
             page.wait_for_load_state("networkidle", timeout=8000)
-
-        # print("[info] Going back to chat list...")
-        # page.wait_for_load_state("networkidle", timeout=5000)
-        # page.go_back()
-        # page.wait_for_load_state("networkidle", timeout=5000)
-        # print("[info] Returned to chat list.")
 
 
 if __name__ == "__main__":
