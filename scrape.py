@@ -11,12 +11,35 @@ import time
 from pathlib import Path
 import unicodedata
 
-
 CDP_ENDPOINT = "http://localhost:9222"
 CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
 # target <a class="w-full" ...> that points to /c/<id>
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
 PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
+
+
+def get_chat_markdown(page) -> str:
+    """
+    Loads ./ChatGPT_to_md.js into the page and returns the markdown string.
+    """
+    js_path = Path(__file__).with_name("ChatGPT-to-md.js")
+    src = js_path.read_text(encoding="utf-8")
+    md = page.evaluate(f"(() => {{ {src}; return getChatMarkdown(); }})()")
+    if not isinstance(md, str):
+        raise RuntimeError("JS did not return a markdown string.")
+    return md
+
+
+def save_markdown(markdown: str, slug: str) -> Path:
+    """
+    Saves markdown to ~/Desktop/ChatGPT-Archive/{slug}_{YYMMDD_HHMMSS}.md
+    """
+    out_dir = Path.home() / "Desktop" / "ChatGPT-Archive"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fname = f"{slug}_{timestamp_now()}.md"
+    out_path = out_dir / fname
+    out_path.write_text(markdown, encoding="utf-8")
+    return out_path
 
 
 def timestamp_now() -> str:
@@ -78,38 +101,60 @@ def main():
         print(f"[info] Attached to page: {page.url}")
 
         # 2) Ensure the target container exists
-        container = page.locator(CONTAINER_SELECTOR).first
-        try:
-            container.wait_for(state="attached", timeout=5000)
-        except PWTimeoutError:
-            raise RuntimeError(
-                f"Container not found with selector: {CONTAINER_SELECTOR}")
+        # Try project links first (<section><ol><li><a href>)
+        proj_links = page.locator(PROJECT_LINKS_SELECTOR)
+        proj_count = proj_links.count()
 
-        print("[info] Container located.")
+        if proj_count > 0:
+            print(f"[info] Project items detected: {proj_count}")
+            links = proj_links
+        else:
+            print("[info] No project items found; using sidebar chat links...")
+            container = page.locator(CONTAINER_SELECTOR).first
+            try:
+                container.wait_for(state="attached", timeout=5000)
+                print("[info] Sidebar container located.")
+            except PWTimeoutError:
+                print("[warn] Sidebar container not found; using page scope.")
+                container = page
+            links = container.locator(CHAT_LINKS_SELECTOR)
 
-        # 3) Count potential chat items (links to /c/<id>) within the container
-        chat_links = container.locator(CHAT_LINKS_SELECTOR)
-        count = chat_links.count()
-        print(f"[info] Chat items detected: {count}")
+        count = links.count()
+        print(f"[info] Link items detected: {count}")
         if count == 0:
-            raise RuntimeError(
-                f"No chat links found using selector: {CHAT_LINKS_SELECTOR}. Page structure may have changed.")
+            raise RuntimeError("No links found in section or sidebar.")
 
-        # 4) Click the first chat item
-        for i in range(3):
-            chat_link = chat_links.nth(i)
-            href = chat_link.get_attribute("href")
-            print(f"[info] Opening chat {i+1}: {href}")
-            chat_link.scroll_into_view_if_needed()
-            chat_link.click()
+        # Click and scrape first 3 items for now
+        for i in range(min(3, count)):
+            link = links.nth(i)
+
+            # 1) TITLE BEFORE CLICK (attributes first, then inner text)
+            title = link.get_attribute(
+                "title") or link.get_attribute("aria-label")
+            if not title:
+                title = link.inner_text(timeout=5000)
+            title = re.sub(r"\s+", " ", (title or f"chat_{i+1}")).strip()
+
+            slug = slugify_title(title)
+            href = link.get_attribute("href")
+            print(
+                f"[info] Opening item {i+1}: {href}  |  title='{title}'  |  slug='{slug}'")
+
+            # 2) OPEN
+            link.scroll_into_view_if_needed()
+            link.click()
             page.wait_for_load_state("networkidle", timeout=8000)
 
-            # Save markdown to Desktop/ChatGPT-Archive
-            out_path = scrape_current_chat_to_markdown(page)
+            # 3) SCRAPE
+            markdown = get_chat_markdown(page)
+            print(f"[info] Collected markdown length: {len(markdown)}")
+
+            # 4) SAVE
+            out_path = save_markdown(markdown, slug)
             print(f"[info] Saved: {out_path}")
 
-            # go back
-            print("[info] Going back to chat list...")
+            # 5) BACK
+            print("[info] Going back to list...")
             page.go_back()
             page.wait_for_load_state("networkidle", timeout=8000)
 
