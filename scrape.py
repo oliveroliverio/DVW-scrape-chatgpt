@@ -4,13 +4,55 @@
 # and clicks the first chat link inside it.
 
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+import os
+import re
+from datetime import datetime
+import time
+from pathlib import Path
+import unicodedata
+
 
 CDP_ENDPOINT = "http://localhost:9222"
 CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
-
 # target <a class="w-full" ...> that points to /c/<id>
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
+PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
 
+
+def timestamp_now() -> str:
+    """Returns a compact YYMMDD_HHMMSS string."""
+    return datetime.now().strftime("%y%m%d_%H%M%S")
+
+
+def slugify_title(title: str) -> str:
+    """
+    Converts a chat title into a filesystem-safe slug
+
+    Examples:
+        'Project: ChatGPT Scraper v1.0!' → 'project_chatgpt_scraper_v1_0'
+        'Deep Learning – Notes' → 'deep_learning_notes'
+    """
+    if not title:
+        return "untitled_chat"
+
+    # Normalize accented characters (é → e)
+    title = unicodedata.normalize("NFKD", title).encode(
+        "ascii", "ignore").decode("ascii")
+
+    # Replace separators and illegal characters with underscores
+    # remove anything not alphanumeric, space, dash
+    title = re.sub(r"[^\w\s-]", "_", title)
+    # collapse whitespace/dashes to single underscore
+    title = re.sub(r"[\s\-]+", "_", title)
+
+    # Strip leading/trailing underscores but keep case
+    title = title.strip("_")
+
+    # Limit length to something sane for filenames
+    if len(title) > 80:
+        title = title[:80]
+
+    return title or "untitled_chat"
 
 
 def pick_chatgpt_page(browser):
@@ -62,15 +104,9 @@ def main():
             chat_link.click()
             page.wait_for_load_state("networkidle", timeout=8000)
 
-            # Scrape user messages
-            print("[info] Scraping user messages...")
-            user_messages = page.eval_on_selector_all(
-                'div[data-message-author-role="user"]',
-                'nodes => nodes.map(n => n.innerText.trim())'
-            )
-            print("[debug] User messages found:", len(user_messages))
-            for j, msg in enumerate(user_messages, 1):
-                print(f"[user {j}] {msg[:200]!r}")
+            # Save markdown to Desktop/ChatGPT-Archive
+            out_path = scrape_current_chat_to_markdown(page)
+            print(f"[info] Saved: {out_path}")
 
             # go back
             print("[info] Going back to chat list...")
