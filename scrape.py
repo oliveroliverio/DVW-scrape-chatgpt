@@ -7,8 +7,9 @@ from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 
 CDP_ENDPOINT = "http://localhost:9222"
 CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
-# Chat items usually navigate to /c/<id>
-CHAT_LINKS_SELECTOR = 'a[href^="/c/"]'
+
+# target <a class="w-full" ...> that points to /c/<id>
+CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
 
 
 def pick_chatgpt_page(browser):
