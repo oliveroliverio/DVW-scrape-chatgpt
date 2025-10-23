@@ -20,6 +20,34 @@ PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
 # -----------------------helper functions---------------------------
 
 
+def safe_go_back_to_list(page, list_selector: str, list_url: str) -> None:
+    """
+    Go back to the list view without hanging on SPA routes.
+    Strategy:
+      1) go_back(wait_until='commit') — don't wait for 'load'
+      2) wait for list selector (anchors)
+      3) if that fails, hard goto the captured list_url
+    """
+    # Try a light-weight history back (no 'load' wait)
+    try:
+        page.go_back(wait_until="commit", timeout=5000)
+    except PWTimeoutError:
+        print("[warn] go_back() timeout; will try detecting list directly...")
+    # Check if the list is actually visible
+    try:
+        page.wait_for_selector(list_selector, timeout=8000)
+        page.wait_for_load_state("domcontentloaded", timeout=4000)
+        print("[info] List detected after back.")
+        return
+    except PWTimeoutError:
+        print("[warn] List selector not found after back; reloading list URL...")
+
+    # Fallback: hard navigate back to list URL
+    page.goto(list_url, wait_until="domcontentloaded", timeout=10000)
+    page.wait_for_selector(list_selector, timeout=8000)
+    print("[info] List detected after goto(list_url).")
+
+
 def to_abs_url(page, href: str) -> str:
     """Return absolute URL for a given href based on the current page origin."""
     if not href:
@@ -176,6 +204,8 @@ def main():
         page = pick_chatgpt_page(browser)
         print(f"[info] Attached to page: {page.url}")
 
+        list_url = page.url  # remember the list page to fall back to later
+
         # 2) Ensure the target container exists
         # Try project links first (<section><ol><li><a href>)
         # Prefer project links first; else sidebar
@@ -236,8 +266,11 @@ def main():
 
             # Back to list for next item
             print("[info] Returning to list...")
-            page.go_back()
-            page.wait_for_load_state("load", timeout=8000)
+            safe_go_back_to_list(
+                page,
+                list_selector=PROJECT_LINKS_SELECTOR if proj_count > 0 else CHAT_LINKS_SELECTOR,
+                list_url=list_url,
+            )
 
 
 if __name__ == "__main__":
