@@ -20,6 +20,36 @@ PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
 # -----------------------helper functions---------------------------
 
 
+def to_abs_url(page, href: str) -> str:
+    """Return absolute URL for a given href based on the current page origin."""
+    if not href:
+        return ""
+    if href.startswith("http://") or href.startswith("https://"):
+        return href
+    origin = page.evaluate("() => location.origin")
+    return origin.rstrip("/") + "/" + href.lstrip("/")
+
+
+def snapshot_items(page, links_locator):
+    """
+    Capture a stable list of (href, title, slug) from the current list view.
+    Use this BEFORE clicking anything.
+    """
+    total = links_locator.count()
+    items = []
+    for i in range(total):
+        a = links_locator.nth(i)
+        href = a.get_attribute("href")
+        title = get_list_title(a) or f"chat_{i+1}"
+        slug = slugify_title(title)
+        abs_url = to_abs_url(page, href)
+        if not abs_url:
+            continue
+        items.append({"index": i, "href": href,
+                     "abs_url": abs_url, "title": title, "slug": slug})
+    return items
+
+
 def wait_for_chat_and_markdown(page, max_wait_ms=12000, retries=4, pause_s=0.6) -> str:
     """
     Waits for chat content to appear, then returns non-empty markdown.
@@ -27,7 +57,7 @@ def wait_for_chat_and_markdown(page, max_wait_ms=12000, retries=4, pause_s=0.6) 
     """
     # 1) Wait for any message node to be in the DOM
     page.wait_for_selector('[data-message-author-role]', timeout=max_wait_ms)
-    page.wait_for_load_state("networkidle", timeout=4000)
+    page.wait_for_load_state("load", timeout=4000)
 
     # 2) Try a few times until markdown is non-empty
     for attempt in range(1, retries + 1):
@@ -37,7 +67,7 @@ def wait_for_chat_and_markdown(page, max_wait_ms=12000, retries=4, pause_s=0.6) 
         # give the SPA a moment to finish painting/rehydration
         time.sleep(pause_s)
         try:
-            page.wait_for_load_state("networkidle", timeout=1500)
+            page.wait_for_load_state("load", timeout=1500)
         except Exception:
             pass
 
@@ -148,6 +178,7 @@ def main():
 
         # 2) Ensure the target container exists
         # Try project links first (<section><ol><li><a href>)
+        # Prefer project links first; else sidebar
         proj_links = page.locator(PROJECT_LINKS_SELECTOR)
         proj_count = proj_links.count()
 
@@ -170,39 +201,43 @@ def main():
         if count == 0:
             raise RuntimeError("No links found in section or sidebar.")
 
-        # Click and scrape first 3 items for now
-        for i in range(min(3, count)):
-            link = links.nth(i)
+        # --- NEW: snapshot the list so locators don't go stale after nav ---
+        items = snapshot_items(page, links)
+        print(f"[info] Snapshot captured: {len(items)} items")
 
-            # 1) TITLE BEFORE CLICK (attributes first, then inner text)
-            title = get_list_title(link) or f"chat_{i+1}"
-
-            slug = slugify_title(title)
-            href = link.get_attribute("href")
+        # Scrape ALL currently visible items
+        for n, it in enumerate(items, 1):
             print(
-                f"[info] Opening item {i+1}: {href}  |  title='{title}'  |  slug='{slug}'")
+                f"\n[info] Opening {n}/{len(items)}: {it['href']}  |  title='{it['title']}'")
+            # Prefer clicking the exact href; if not present (list re-render), just goto the absolute URL
+            link = page.locator(f'a[href="{it["href"]}"]').first
+            if link.count() > 0:
+                link.scroll_into_view_if_needed()
+                link.click()
+            else:
+                page.goto(it["abs_url"], wait_until="load")
+            page.wait_for_load_state("load", timeout=8000)
 
-            # 2) OPEN
-            link.scroll_into_view_if_needed()
-            link.click()
-            page.wait_for_load_state("networkidle", timeout=8000)
-
-            # 3) SCRAPE
+            # Wait + scrape (your robust helper)
             markdown = wait_for_chat_and_markdown(page)
             if not markdown:
-                print(
-                    "[warn] Markdown still empty after waits; skipping save for this item.")
-                # Optional: continue to next item
+                print("[warn] Markdown empty after waits; skipping save.")
+                # Try to go back anyway
+                try:
+                    page.go_back()
+                    page.wait_for_load_state("load", timeout=8000)
+                except Exception:
+                    pass
                 continue
 
-            # 4) SAVE
-            out_path = save_markdown(markdown, slug)
+            # Save
+            out_path = save_markdown(markdown, it["slug"])
             print(f"[info] Saved: {out_path}")
 
-            # 5) BACK
-            print("[info] Going back to list...")
+            # Back to list for next item
+            print("[info] Returning to list...")
             page.go_back()
-            page.wait_for_load_state("networkidle", timeout=8000)
+            page.wait_for_load_state("load", timeout=8000)
 
 
 if __name__ == "__main__":
