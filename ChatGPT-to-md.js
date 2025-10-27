@@ -4,6 +4,24 @@
 
 //----------------------helper functions----------------------
 
+// Process image nodes and return markdown with timestamped figure names
+function process_image(imgNode) {
+    if (!imgNode || imgNode.tagName.toLowerCase() !== 'img') return '';
+
+    const src = imgNode.getAttribute('src') || '';
+    if (!src) return '';
+
+    // Generate timestamp for unique figure naming
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0];
+
+    // Get alt text for context (optional)
+    const alt = imgNode.getAttribute('alt') || '';
+
+    // Create markdown image with timestamped figure name
+    return `![fig_${timestamp}](${src})`;
+}
+
 // Prefer the real code area and always read raw DOM text (visibility-independent)
 function extractCodeText(preOrCodeEl) {
     // If a <pre>, try the scrollable code area first, then any <code>, else the <pre> itself
@@ -192,6 +210,10 @@ function nodeToMarkdown(node) {
                 return `[${label}](${href})`;
             }
 
+            case 'img': {
+                return process_image(node);
+            }
+
             case 'iframe': {
                 const src = node.getAttribute('src') || '';
                 if (!src) return '';
@@ -249,5 +271,5 @@ function getChatMarkdown() {
 }
 
 // For snippet testing in DevTools, uncomment:
-// const markdown = getChatMarkdown();
-// console.log(markdown);
+const markdown = getChatMarkdown();
+console.log(markdown);
