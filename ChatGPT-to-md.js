@@ -1,8 +1,8 @@
 // chatgpt_to_md.js
 // Returns the current conversation as Markdown when you call getChatMarkdown().
 // For browser testing in Sources > Snippets, you can run:
-//   const markdown = getChatMarkdown();
-//   // console.log(markdown);
+
+//----------------------helper functions----------------------
 
 // Prefer the real code area and always read raw DOM text (visibility-independent)
 function extractCodeText(preOrCodeEl) {
@@ -98,6 +98,43 @@ function tableToMarkdown(tableEl) {
     return '\n' + markdown + '\n';
 }
 
+
+function processChildNodes(parent) {
+    let result = '';
+    parent.childNodes.forEach(child => { result += nodeToMarkdown(child); });
+    return result;
+}
+
+function processList(listNode, bullet) {
+    let result = '';
+    const items = listNode.querySelectorAll(':scope > li');
+    items.forEach((li, i) => {
+        const prefix = (typeof bullet === 'function') ? bullet(i) : bullet;
+        const content = processChildNodes(li).trim();
+        // result += prefix + content.replace(/\n+/g, ' ') + '\n';
+        // Render the item's markdown
+        let itemMd = processChildNodes(li).trim();
+
+        // If the list item contains block content (code, tables, headings, etc.),
+        // DO NOT collapse newlines — preserve formatting.
+        const hasBlock = li.querySelector('pre, table, blockquote, div, section, article, h1, h2, h3, h4');
+        const containsFence = itemMd.includes('```');
+
+        if (hasBlock || containsFence) {
+            // Keep as-is so fenced code blocks render correctly.
+            // Most markdown renderers accept block content immediately after the bullet.
+            result += `${prefix}${itemMd}\n`;
+        } else {
+            // Simple text list item: OK to collapse internal newlines to spaces.
+            result += `${prefix}${itemMd.replace(/\n+/g, ' ')}\n`;
+        }
+    });
+    return result;
+
+}
+
+//----------------------main node2markdown function----------------------------------
+
 function nodeToMarkdown(node) {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
     if (node.nodeType === Node.ELEMENT_NODE) {
@@ -175,40 +212,8 @@ function nodeToMarkdown(node) {
     return '';
 }
 
-function processChildNodes(parent) {
-    let result = '';
-    parent.childNodes.forEach(child => { result += nodeToMarkdown(child); });
-    return result;
-}
 
-function processList(listNode, bullet) {
-    let result = '';
-    const items = listNode.querySelectorAll(':scope > li');
-    items.forEach((li, i) => {
-        const prefix = (typeof bullet === 'function') ? bullet(i) : bullet;
-        const content = processChildNodes(li).trim();
-        // result += prefix + content.replace(/\n+/g, ' ') + '\n';
-        // Render the item's markdown
-        let itemMd = processChildNodes(li).trim();
-
-        // If the list item contains block content (code, tables, headings, etc.),
-        // DO NOT collapse newlines — preserve formatting.
-        const hasBlock = li.querySelector('pre, table, blockquote, div, section, article, h1, h2, h3, h4');
-        const containsFence = itemMd.includes('```');
-
-        if (hasBlock || containsFence) {
-            // Keep as-is so fenced code blocks render correctly.
-            // Most markdown renderers accept block content immediately after the bullet.
-            result += `${prefix}${itemMd}\n`;
-        } else {
-            // Simple text list item: OK to collapse internal newlines to spaces.
-            result += `${prefix}${itemMd.replace(/\n+/g, ' ')}\n`;
-        }
-    });
-    return result;
-}
-
-// --- MAIN: build Markdown from DOM ---
+// --- --------------------------MAIN: build Markdown from DOM --------------------------
 function getChatMarkdown() {
     // Title if present
     const titleNode = document.querySelector('h1, header h1, [data-testid="conversation-title"]');
