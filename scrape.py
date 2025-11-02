@@ -4,12 +4,14 @@
 # and clicks the first chat link inside it.
 
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
-import os
 import re
 from datetime import datetime
 import time
 from pathlib import Path
 import unicodedata
+import subprocess
+import requests
+from urllib.parse import urljoin, urlparse
 
 CDP_ENDPOINT = "http://localhost:9222"
 CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
@@ -46,6 +48,85 @@ def safe_go_back_to_list(page, list_selector: str, list_url: str) -> None:
     page.goto(list_url, wait_until="domcontentloaded", timeout=10000)
     page.wait_for_selector(list_selector, timeout=8000)
     print("[info] List detected after goto(list_url).")
+
+
+def download_images_with_browser_session(page, markdown_content, markdown_file_path):
+    """Download images using the browser's authenticated session"""
+    try:
+        # Create z-img directory if it doesn't exist
+        script_dir = Path(__file__).parent
+        z_img_dir = script_dir / "z-img"
+        z_img_dir.mkdir(exist_ok=True)
+        
+        # Extract title from markdown for naming
+        title_match = re.search(r'^#\s+(.+)$', markdown_content, re.MULTILINE)
+        if title_match:
+            title = title_match.group(1).strip()
+            title = re.sub(r'[^a-zA-Z0-9\s-]', '', title)
+            title = re.sub(r'\s+', '_', title).lower()
+        else:
+            title = 'chatgpt_conversation'
+        
+        # Find image URLs in markdown (fig_ pattern)
+        image_pattern = r'!\[fig_[^\]]*\]\(([^)]+)\)'
+        images_found = re.findall(image_pattern, markdown_content)
+        
+        if not images_found:
+            print(f"[info] No ChatGPT images found in {markdown_file_path}")
+            return markdown_content
+        
+        print(f"[info] Found {len(images_found)} images to download")
+        
+        # Get browser cookies for authenticated requests
+        cookies = {}
+        for cookie in page.context.cookies():
+            cookies[cookie['name']] = cookie['value']
+        
+        # Download each image and update markdown
+        updated_content = markdown_content
+        
+        for i, url in enumerate(images_found):
+            if not url.startswith('http'):
+                continue
+                
+            try:
+                print(f"[info] Downloading image {i+1}/{len(images_found)}: {url}")
+                
+                # Generate filename
+                timestamp = datetime.now().isoformat().replace(':', '-').replace('.', '-')
+                parsed_url = urlparse(url)
+                extension = '.jpg'  # default
+                if '.png' in url: extension = '.png'
+                elif '.webp' in url: extension = '.webp'
+                elif '.gif' in url: extension = '.gif'
+                elif '.svg' in url: extension = '.svg'
+                
+                filename = f"{title}_fig_{timestamp}{extension}"
+                local_path = z_img_dir / filename
+                
+                # Download with authenticated session
+                response = requests.get(url, cookies=cookies, timeout=30)
+                
+                if response.status_code == 200:
+                    with open(local_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    # Update markdown content
+                    relative_path = f"z-img/{filename}"
+                    updated_content = updated_content.replace(url, relative_path)
+                    print(f"[info] ✅ Downloaded and updated: {filename}")
+                else:
+                    print(f"[warn] ❌ Failed to download {url}: {response.status_code}")
+                    
+            except Exception as e:
+                print(f"[error] Failed to download {url}: {e}")
+                continue
+        
+        return updated_content
+        
+    except Exception as e:
+        print(f"[error] Image download process failed: {e}")
+        return markdown_content
 
 
 def to_abs_url(page, href: str) -> str:
@@ -259,6 +340,8 @@ def main():
                 except Exception:
                     pass
                 continue
+
+            markdown = download_images_with_browser_session(page, markdown, it["slug"])
 
             # Save
             out_path = save_markdown(markdown, it["slug"])

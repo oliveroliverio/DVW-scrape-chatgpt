@@ -15,7 +15,7 @@ Great call — taking a creative detour into vivid, psychedelic AI art can be a 
 
 ### 🎨 Sample visuals
 
-![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.jpg)![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.jpg)![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.jpg)![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.webp)![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.png)![fig_2025-10-28_00-03-36-382Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-382Z.jpg)
+![fig_2025-10-28_00-04-26-032Z](https://i.etsystatic.com/40540676/r/il/e0b4f4/4641411301/il_570xN.4641411301_ngcf.jpg)![fig_2025-10-28_00-04-26-032Z](https://i.etsystatic.com/40540676/r/il/841dec/4615308027/il_fullxfull.4615308027_tddb.jpg)![fig_2025-10-28_00-04-26-032Z](https://i.etsystatic.com/40540676/r/il/e0b4f4/4641411301/il_fullxfull.4641411301_ngcf.jpg)![fig_2025-10-28_00-04-26-032Z](https://r2.starryai.com/results/1053562921/30a9d099-ae74-4ce2-90f1-e2de8c063e77.webp)![fig_2025-10-28_00-04-26-032Z](https://cdn.cgdream.ai/_next/image?q=95&url=https%3A%2F%2Fapi.cgdream.ai%2Frails%2Factive_storage%2Fblobs%2Fredirect%2FeyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBd3FQb0E9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ%3D%3D--d526e217231b6372c7ed7823fb3f3da29b30b5db%2F31b7e032-9085-4911-a0fc-2d26c1ff509d_0.png&w=1920)![fig_2025-10-28_00-04-26-032Z](https://i.etsystatic.com/40540676/r/il/ed5d64/4560801114/il_fullxfull.4560801114_m3gw.jpg)
 Here are some eye-catching, brain-calming visuals. Let their bold colour palettes, flowing forms and surreal details reset your creative brain for a bit.
 
 
@@ -66,7 +66,7 @@ Can you see his/her content.  Let me know and if not,  I'll attach some examples
 
 ## Personality (Instagram handle: @hellopersonality)
 
-![fig_2025-10-28_00-03-36-383Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-383Z.jpg)![fig_2025-10-28_00-03-36-383Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-383Z.jpg)![fig_2025-10-28_00-03-36-383Z](z-img/likely_pipelines_from_most_to_least_probable_fig_2025-10-28_00-03-36-383Z.jpg)
+![fig_2025-10-28_00-04-26-033Z](https://i.ytimg.com/vi/6ZqyhWT-CM4/oardefault.jpg?rs=AOn4CLAmE2Yzx7LUsSMVjKJguiy8QNpCnA&sqp=-oaymwEYCJUDENAFSFqQAgHyq4qpAwcIARUAAIhC)![fig_2025-10-28_00-04-26-033Z](https://i.ytimg.com/vi/t6jlhqNxRYk/maxresdefault.jpg?rs=AOn4CLCp9-we6l3OpTzIsCsxa6jVkbfbXQ&sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AH-DoACuAiKAgwIABABGH8gPSg8MA8%3D)![fig_2025-10-28_00-04-26-033Z](https://visualatelier8.com/wp-content/uploads/2021/11/sunsetStillsHIghRez-0-00-00-36-1024x1024.jpg)
 Yes—I was able to view the profile you mentioned: **@hellopersonality** on Instagram. [instagram.com+2instagram.com+2](https://www.instagram.com/hellopersonality/?hl=en&utm_source=chatgpt.com)
 Here’s a breakdown of what I found and how you might use it as inspiration:
 
