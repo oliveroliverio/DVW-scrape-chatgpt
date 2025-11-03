@@ -18,6 +18,7 @@ CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
 # target <a class="w-full" ...> that points to /c/<id>
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
 PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
+CHAT_DOWNLOAD_DIR = './Downloaded_Chats'
 
 # -----------------------helper functions---------------------------
 
@@ -53,11 +54,11 @@ def safe_go_back_to_list(page, list_selector: str, list_url: str) -> None:
 def download_images_with_browser_session(page, markdown_content, markdown_file_path):
     """Download images using the browser's authenticated session"""
     try:
-        # Create z-img directory if it doesn't exist
-        script_dir = Path(__file__).parent
-        z_img_dir = script_dir / "z-img"
-        z_img_dir.mkdir(exist_ok=True)
-        
+        # Create z-img directory within CHAT_DOWNLOAD_DIR if it doesn't exist
+        chat_dir = Path(CHAT_DOWNLOAD_DIR)
+        z_img_dir = chat_dir / "z-img"
+        z_img_dir.mkdir(parents=True, exist_ok=True)
+
         # Extract title from markdown for naming
         title_match = re.search(r'^#\s+(.+)$', markdown_content, re.MULTILINE)
         if title_match:
@@ -66,64 +67,71 @@ def download_images_with_browser_session(page, markdown_content, markdown_file_p
             title = re.sub(r'\s+', '_', title).lower()
         else:
             title = 'chatgpt_conversation'
-        
+
         # Find image URLs in markdown (fig_ pattern)
         image_pattern = r'!\[fig_[^\]]*\]\(([^)]+)\)'
         images_found = re.findall(image_pattern, markdown_content)
-        
+
         if not images_found:
             print(f"[info] No ChatGPT images found in {markdown_file_path}")
             return markdown_content
-        
+
         print(f"[info] Found {len(images_found)} images to download")
-        
+
         # Get browser cookies for authenticated requests
         cookies = {}
         for cookie in page.context.cookies():
             cookies[cookie['name']] = cookie['value']
-        
+
         # Download each image and update markdown
         updated_content = markdown_content
-        
+
         for i, url in enumerate(images_found):
             if not url.startswith('http'):
                 continue
-                
+
             try:
-                print(f"[info] Downloading image {i+1}/{len(images_found)}: {url}")
-                
+                print(
+                    f"[info] Downloading image {i+1}/{len(images_found)}: {url}")
+
                 # Generate filename
                 timestamp = datetime.now().isoformat().replace(':', '-').replace('.', '-')
                 parsed_url = urlparse(url)
                 extension = '.jpg'  # default
-                if '.png' in url: extension = '.png'
-                elif '.webp' in url: extension = '.webp'
-                elif '.gif' in url: extension = '.gif'
-                elif '.svg' in url: extension = '.svg'
-                
+                if '.png' in url:
+                    extension = '.png'
+                elif '.webp' in url:
+                    extension = '.webp'
+                elif '.gif' in url:
+                    extension = '.gif'
+                elif '.svg' in url:
+                    extension = '.svg'
+
                 filename = f"{title}_fig_{timestamp}{extension}"
                 local_path = z_img_dir / filename
-                
+
                 # Download with authenticated session
                 response = requests.get(url, cookies=cookies, timeout=30)
-                
+
                 if response.status_code == 200:
                     with open(local_path, 'wb') as f:
                         f.write(response.content)
-                    
+
                     # Update markdown content
                     relative_path = f"z-img/{filename}"
-                    updated_content = updated_content.replace(url, relative_path)
+                    updated_content = updated_content.replace(
+                        url, relative_path)
                     print(f"[info] ✅ Downloaded and updated: {filename}")
                 else:
-                    print(f"[warn] ❌ Failed to download {url}: {response.status_code}")
-                    
+                    print(
+                        f"[warn] ❌ Failed to download {url}: {response.status_code}")
+
             except Exception as e:
                 print(f"[error] Failed to download {url}: {e}")
                 continue
-        
+
         return updated_content
-        
+
     except Exception as e:
         print(f"[error] Image download process failed: {e}")
         return markdown_content
@@ -215,9 +223,9 @@ def get_chat_markdown(page) -> str:
 
 def save_markdown(markdown: str, slug: str) -> Path:
     """
-    Saves markdown to ~/Desktop/ChatGPT-Archive/{slug}_{YYMMDD_HHMMSS}.md
+    Saves markdown to CHAT_DOWNLOAD_DIR/{slug}_{YYMMDD_HHMMSS}.md
     """
-    out_dir = Path.home() / "Desktop" / "ChatGPT-Archive"
+    out_dir = Path(CHAT_DOWNLOAD_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{slug}_{timestamp_now()}.md"
     out_path = out_dir / fname
@@ -341,7 +349,8 @@ def main():
                     pass
                 continue
 
-            markdown = download_images_with_browser_session(page, markdown, it["slug"])
+            markdown = download_images_with_browser_session(
+                page, markdown, it["slug"])
 
             # Save
             out_path = save_markdown(markdown, it["slug"])
