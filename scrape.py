@@ -17,7 +17,8 @@ CDP_ENDPOINT = "http://localhost:9222"
 CONTAINER_SELECTOR = 'div.relative.basis-auto.flex-col.grow.grid'
 # target <a class="w-full" ...> that points to /c/<id>
 CHAT_LINKS_SELECTOR = 'a.w-full[href*="/c/"]'
-PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
+# PROJECT_LINKS_SELECTOR = 'section ol li a[href]'
+PROJECT_LINKS_SELECTOR = '#history a[href]'
 CHAT_DOWNLOAD_DIR = './Downloaded_Chats'
 
 # -----------------------helper functions---------------------------
@@ -154,16 +155,31 @@ def snapshot_items(page, links_locator):
     """
     total = links_locator.count()
     items = []
+    print(f"[info] Capturing {total} chat links...")
+    
     for i in range(total):
-        a = links_locator.nth(i)
-        href = a.get_attribute("href")
-        title = get_list_title(a) or f"chat_{i+1}"
-        slug = slugify_title(title)
-        abs_url = to_abs_url(page, href)
-        if not abs_url:
+        if i % 10 == 0 or i == total - 1:
+            print(f"[info] Processing link {i+1}/{total}...")
+        
+        try:
+            a = links_locator.nth(i)
+            href = a.get_attribute("href")
+            if not href:
+                continue
+                
+            title = get_list_title(a) or f"chat_{i+1}"
+            slug = slugify_title(title)
+            abs_url = to_abs_url(page, href)
+            if not abs_url:
+                continue
+                
+            items.append({"index": i, "href": href,
+                         "abs_url": abs_url, "title": title, "slug": slug})
+        except Exception as e:
+            print(f"[warn] Error processing link {i+1}: {e}")
             continue
-        items.append({"index": i, "href": href,
-                     "abs_url": abs_url, "title": title, "slug": slug})
+    
+    print(f"[info] Successfully captured {len(items)} valid chat links")
     return items
 
 
@@ -194,19 +210,43 @@ def wait_for_chat_and_markdown(page, max_wait_ms=12000, retries=4, pause_s=0.6) 
 
 def get_list_title(link_el) -> str:
     """
-    From a project list <a>, return only the visible title text,
-    preferring <div class="text-sm font-medium">.
+    From a chat history link <a>, return the visible title text.
+    Handles both project links and sidebar chat links.
     """
     try:
+        # First try: project links structure
         title_node = link_el.locator('div.text-sm.font-medium').first
-        return title_node.inner_text(timeout=2000).strip()
+        if title_node.count() > 0:
+            return title_node.inner_text(timeout=1000).strip()
     except Exception:
-        # fallback: attribute → full anchor text
-        t = link_el.get_attribute(
-            "title") or link_el.get_attribute("aria-label")
-        if not t:
-            t = link_el.inner_text(timeout=5000)
-        return re.sub(r"\s+", " ", (t or "")).strip()
+        pass
+    
+    try:
+        # Second try: get text from attributes (faster and more reliable)
+        t = link_el.get_attribute("title") or link_el.get_attribute("aria-label")
+        if t and t.strip():
+            return re.sub(r"\s+", " ", t.strip())
+    except Exception:
+        pass
+    
+    try:
+        # Third try: get inner text with shorter timeout
+        t = link_el.inner_text(timeout=1000)
+        if t and t.strip():
+            return re.sub(r"\s+", " ", t.strip())
+    except Exception:
+        pass
+    
+    # Fallback: extract from href or return generic name
+    try:
+        href = link_el.get_attribute("href") or ""
+        if "/c/" in href:
+            chat_id = href.split("/c/")[-1].split("/")[0][:8]
+            return f"Chat_{chat_id}"
+    except Exception:
+        pass
+    
+    return "Untitled_Chat"
 
 
 def get_chat_markdown(page) -> str:
@@ -276,8 +316,19 @@ def pick_chatgpt_page(browser):
             url = (page.url or "").lower()
             if "chatgpt.com" in url or "chat.openai.com" in url:
                 return page
-    # Fallback: first page in first context
-    return browser.contexts[0].pages[0]
+
+    # Fallback: navigate the first page to ChatGPT
+    page = browser.contexts[0].pages[0]
+    print("[info] No ChatGPT page found, navigating to ChatGPT...")
+    try:
+        page.goto("https://chatgpt.com",
+                  wait_until="networkidle", timeout=30000)
+        print("[info] Successfully navigated to ChatGPT")
+    except Exception as e:
+        print(f"[warn] Failed to navigate to ChatGPT: {e}")
+        print("[info] Please manually navigate to ChatGPT and ensure you're logged in")
+
+    return page
 
 # ---------------------------------main function-------------------------
 
